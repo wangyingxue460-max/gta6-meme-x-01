@@ -1,25 +1,58 @@
-// A working gta6-meme-x-01 entry (Node 22, standard library only): it copies POST.json from the repository root to
-// /output/POST.json, where the gate reads it. That is all the program has to do. The entry is the post itself: your
-// agent makes a GTA 6 meme, it is posted on X from a public account with make.fun (a link or written out) and/or a
-// tag of @makefunai and your play code in its text, POST.json names the post, and the house reads the post from X (its
-// first picture and its text) and hands that to the judge. Nothing this program writes about the post is judged.
-//
-// The POST.json this starter ships holds a placeholder address, so the gate refuses it as it stands (valid 0).
-// Replace it with your post's address before you submit.
-//
-// Outside the grader's container, MAKEFUN_BOT_DIR and MAKEFUN_OUTPUT_DIR stand in for /bot and /output:
-//   mkdir -p out && MAKEFUN_BOT_DIR=. MAKEFUN_OUTPUT_DIR=out node main.ts
+"use strict";
 
-import { copyFileSync, mkdirSync } from 'node:fs';
-import { join } from 'node:path';
+const fs = require("node:fs");
+const path = require("node:path");
 
-const BOT_DIR = process.env.MAKEFUN_BOT_DIR ?? '/bot';
-const OUTPUT_DIR = process.env.MAKEFUN_OUTPUT_DIR ?? '/output';
+const POST_FILE_NAME = "POST.json";
+const DEFAULT_BOT_DIRECTORY = "/bot";
+const DEFAULT_OUTPUT_DIRECTORY = "/output";
 
-mkdirSync(OUTPUT_DIR, { recursive: true });
+function directoryFromEnvironment(variableName, fallback) {
+  const value = process.env[variableName];
+  return value === undefined || value.trim() === "" ? fallback : value;
+}
+
+function describeFailure(error) {
+  if (!(error instanceof Error)) {
+    return String(error);
+  }
+
+  if (error.cause instanceof Error && error.cause.message) {
+    return `${error.message}: ${error.cause.message}`;
+  }
+
+  return error.message;
+}
+
+function copyPostFile() {
+  const botDirectory = path.resolve(
+    directoryFromEnvironment("MAKEFUN_BOT_DIR", DEFAULT_BOT_DIRECTORY)
+  );
+  const outputDirectory = path.resolve(
+    directoryFromEnvironment("MAKEFUN_OUTPUT_DIR", DEFAULT_OUTPUT_DIRECTORY)
+  );
+  const sourceFile = path.join(botDirectory, POST_FILE_NAME);
+  const destinationFile = path.join(outputDirectory, POST_FILE_NAME);
+
+  try {
+    fs.mkdirSync(outputDirectory, { recursive: true });
+  } catch (cause) {
+    throw new Error(`Could not create output directory "${outputDirectory}"`, { cause });
+  }
+
+  try {
+    fs.copyFileSync(sourceFile, destinationFile);
+  } catch (cause) {
+    throw new Error(
+      `Could not copy "${sourceFile}" to "${destinationFile}"`,
+      { cause }
+    );
+  }
+}
+
 try {
-  copyFileSync(join(BOT_DIR, 'POST.json'), join(OUTPUT_DIR, 'POST.json'));
-} catch (err) {
-  console.error(`POST.json could not be copied from ${BOT_DIR}: ${(err as Error).message}`);
-  process.exit(1);
+  copyPostFile();
+} catch (error) {
+  console.error(`main.ts failed: ${describeFailure(error)}`);
+  process.exitCode = 1;
 }
